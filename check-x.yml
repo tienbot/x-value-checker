@@ -2,8 +2,8 @@ name: Check X Value Daily
 
 on:
   schedule:
-    - cron: '10 10 * * *'  # 13:40 МСК
-  workflow_dispatch:
+    - cron: '10 18 * * *'  # 13:40 МСК (10:10 UTC)
+  workflow_dispatch:       # Разрешает ручной запуск
 
 jobs:
   check-x:
@@ -20,8 +20,8 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer
 
-      - name: Run X Value Check
-        id: check
+      - name: Check X value
+        id: x-check
         run: |
           node <<EOF
           const puppeteer = require('puppeteer');
@@ -33,33 +33,25 @@ jobs:
             await page.goto('https://site-65141.taptop.site/page-7');
             
             const xValue = await page.evaluate(() => {
-              return document.querySelector('.textx span').textContent;
+              return document.querySelector('.textx span').textContent.trim();
             });
             
             console.log('Значение x:', xValue);
-            await browser.close();
             
-            // Формируем output для следующего шага
+            // Формируем выходные данные для GitHub Actions
             if (xValue === '100') {
-              console.log('::set-output name=status::failure');
-              console.log('::set-output name=message::Переменная x = 100');
+              console.log('::error::Обнаружено x=100!');
+              process.exit(1);  // Падаем с ошибкой
             } else {
-              console.log('::set-output name=status::success');
-              console.log('::set-output name=message::Тест прошел успешно!');
+              console.log('::notice::Тест пройден. x =', xValue);
             }
+            
+            await browser.close();
           })();
           EOF
 
-      - name: Create Status Report
-        if: always()
+      - name: Success Notification
+        if: success()
         run: |
-          echo "Результат: ${{ steps.check.outputs.status }}"
-          echo "Сообщение: ${{ steps.check.outputs.message }}"
-          
-          # Форсируем падение workflow при x=100
-          if [ '${{ steps.check.outputs.status }}' = 'failure' ]; then
-            echo "::error ::${{ steps.check.outputs.message }}"
-            exit 1
-          else
-            echo "::notice ::${{ steps.check.outputs.message }}"
-          fi
+          echo "✅ Тест успешно пройден"
+          echo "Последнее значение x: ${{ steps.x-check.outputs.x-value }}"
