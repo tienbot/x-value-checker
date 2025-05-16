@@ -1,0 +1,65 @@
+name: Check X Value Daily
+
+on:
+  schedule:
+    - cron: '10 10 * * *'  # 13:40 МСК
+  workflow_dispatch:
+
+jobs:
+  check-x:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Run X Value Check
+        id: check
+        run: |
+          node <<EOF
+          const puppeteer = require('puppeteer');
+
+          (async () => {
+            const browser = await puppeteer.launch();
+            const page = await browser.newPage();
+            
+            await page.goto('https://site-65141.taptop.site/page-7');
+            
+            const xValue = await page.evaluate(() => {
+              return document.querySelector('.textx span').textContent;
+            });
+            
+            console.log('Значение x:', xValue);
+            await browser.close();
+            
+            // Формируем output для следующего шага
+            if (xValue === '100') {
+              console.log('::set-output name=status::failure');
+              console.log('::set-output name=message::Переменная x = 100');
+            } else {
+              console.log('::set-output name=status::success');
+              console.log('::set-output name=message::Тест прошел успешно!');
+            }
+          })();
+          EOF
+
+      - name: Create Status Report
+        if: always()
+        run: |
+          echo "Результат: ${{ steps.check.outputs.status }}"
+          echo "Сообщение: ${{ steps.check.outputs.message }}"
+          
+          # Форсируем падение workflow при x=100
+          if [ '${{ steps.check.outputs.status }}' = 'failure' ]; then
+            echo "::error ::${{ steps.check.outputs.message }}"
+            exit 1
+          else
+            echo "::notice ::${{ steps.check.outputs.message }}"
+          fi
