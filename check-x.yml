@@ -2,7 +2,7 @@ name: Check X Value Daily
 
 on:
   schedule:
-    - cron: '10 18 * * *'  # 13:40 МСК (10:10 UTC)
+    - cron: '11 00 * * *'  # 13:40 МСК (10:10 UTC)
   workflow_dispatch:       # Разрешает ручной запуск
 
 jobs:
